@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>파일 관리</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8f9fc; padding: 40px; margin: 0; }
+
+        /* --- 상단 헤더 영역 --- */
+        .header-area { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+
+        .page-title { font-size: 24px; font-weight: bold; color: #5a5c69; }
+        .btn-back { text-decoration: none; color: #858796; font-size: 14px; padding: 8px 16px; border: 1px solid #d1d3e2; border-radius: 4px; background: white; }
+        .btn-back:hover { background-color: #eaecf4; }
+
+        /* --- 버튼 그룹 --- */
+        .btn-group { display: flex; gap: 10px; }
+        .btn-common {
+            padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;
+            border: 1px solid transparent; transition: all 0.2s;
+        }
+        /* 파일 업로드 버튼 (파란색) */
+        .btn-upload { background-color: white; border-color: #4e73df; color: #4e73df; }
+        .btn-upload:hover { background-color: #4e73df; color: white; }
+        /* 폴더 생성 버튼 (녹색) */
+        .btn-new-folder { background-color: white; border-color: #1cc88a; color: #1cc88a; }
+        .btn-new-folder:hover { background-color: #1cc88a; color: white; }
+
+        /* --- Breadcrumb (경로 네비게이션) --- */
+        .breadcrumb-bar {
+            background-color: #fff; padding: 10px 15px; border-radius: 4px; border: 1px solid #e3e6f0;
+            display: flex; align-items: center; font-size: 14px; color: #858796;
+        }
+        .breadcrumb-item { cursor: pointer; color: #4e73df; font-weight: bold; padding: 2px 5px; border-radius: 4px; }
+        .breadcrumb-item:hover { text-decoration: underline; background-color: #f1f1f1; }
+
+        .breadcrumb-separator { margin: 0 5px; color: #aaa; }
+
+        .breadcrumb-current { color: #555; font-weight: normal; cursor: default; padding: 2px 5px; border-radius: 4px; }
+
+
+        /* --- 그리드 레이아웃 --- */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* 반응형 */
+            gap: 20px;
+        }
+
+        /* --- 공통 카드 스타일 (폴더/파일) --- */
+        .item-card {
+            background: white; border: 1px solid #e3e6f0; border-radius: 8px;
+            height: 180px; position: relative; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            user-select: none; /* 드래그 시 텍스트 선택 방지 */
+        }
+        .item-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        /* ★ 드래그 앤 드롭 타겟 강조 스타일 (카드용) ★ */
+        .drag-over {
+            border: 2px dashed #4e73df !important;
+            background-color: #eef2ff !important;
+            transform: scale(1.05);
+            z-index: 5;
+        }
+
+        /* ★ [추가] 드래그 앤 드롭 타겟 강조 스타일 (Breadcrumb 글자용) ★ */
+        /* 글자(span)는 크기가 커지면(scale) 레이아웃이 깨지므로 아웃라인만 표시 */
+        span.drag-over {
+            transform: none !important;
+            border: none !important;
+            outline: 2px dashed #4e73df;
+            background-color: #eef2ff !important;
+        }
+
+        /* 아이콘 영역 */
+        .item-icon { font-size: 50px; margin-bottom: 10px; }
+
+        /* 텍스트 영역 */
+        .item-name { font-size: 14px; color: #333; padding: 0 10px; text-align: center; word-break: break-all; font-weight: 500; }
+        .item-meta { font-size: 11px; color: #aaa; margin-top: 5px; }
+
+        /* --- Hover Overlay (마우스 올렸을 때 버튼들) --- */
+        .hover-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;
+            opacity: 0; transition: opacity 0.2s ease;
+            z-index: 10; cursor: default;
+        }
+        .item-card:hover .hover-overlay { opacity: 1; }
+
+        .btn-action {
+            width: 90px; padding: 6px 0; border: none; border-radius: 20px;
+            font-size: 12px; cursor: pointer; font-weight: bold; text-decoration: none;
+            text-align: center; display: block; color: white;
+        }
+        /* 버튼 색상 */
+        .btn-enter { background-color: #4e73df; } /* 폴더 진입 */
+        .btn-view  { background-color: #36b9cc; } /* 미리보기 */
+        .btn-down  { background-color: #f6c23e; } /* 다운로드 */
+        .btn-del   { background-color: #e74a3b; } /* 삭제 */
+
+        .btn-action:hover { opacity: 0.9; }
+
+        /* 빈 폴더 안내 */
+        .empty-msg { grid-column: 1/-1; text-align: center; padding: 50px; color: #858796; }
+
+    </style>
+</head>
+<body>
+
+<div class="header-area">
+    <div class="header-top">
+        <div>
+            <a href="/space/list" class="btn-back">← 스페이스 목록</a>
+            <span class="page-title" style="margin-left: 15px;">🗂️ 파일 탐색기</span>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-common btn-new-folder" onclick="createNewFolder()">+ 새 폴더</button>
+            <button class="btn-common btn-upload" onclick="$('#fileInput').click()">+ 파일 업로드</button>
+            <input type="file" id="fileInput" style="display: none;" onchange="uploadFile()">
+        </div>
+    </div>
+
+    <div class="breadcrumb-bar" id="breadcrumb_area">
+        <span class="breadcrumb-current">Home</span>
+    </div>
+</div>
+
+<div id="file_list_area" class="file-grid">
+</div>
+
+<script>
+    // URL에서 spaceId 추출 (/space/fileList/10 -> 10)
+    const pathParts = location.pathname.split('/');
+    const spaceId = pathParts[pathParts.length - 1];
+
+    // ★ 상태 관리 변수 ★
+    let currentFolderId = null; // 현재 보고 있는 폴더 ID (null = 최상위 루트)
+
+    // 경로 관리 스택 (Breadcrumb용)
+    let folderStack = [
+        { id: null, name: 'Home' }
+    ];
+
+    $(document).ready(function(){
+        // JWT 토큰 설정 (AJAX 요청 시 헤더에 자동 포함)
+        let accessToken = localStorage.getItem("accessToken");
+        if(accessToken){
+            $.ajaxSetup({
+                beforeSend: function(xhr){
+                    if (!accessToken.startsWith("Bearer ")) accessToken = "Bearer " + accessToken;
+                    xhr.setRequestHeader("Authorization", accessToken);
+                }
+            });
+        }
+
+        // 초기 로드
+        loadItems();
+        renderBreadcrumb();
+    });
+
+    // ==========================================
+    // 1. 목록 조회 (폴더 + 파일) & 렌더링
+    // ==========================================
+    function loadItems(){
+        $.ajax({
+            url: '/api/file/list',
+            method: 'GET',
+            data: {
+                spaceId: spaceId,
+                folderId: currentFolderId
+            },
+            success: function(data){
+                let area = $("#file_list_area");
+                area.empty();
+
+                if(!data || data.length === 0){
+                    area.html("<div class='empty-msg'>폴더가 비어있습니다.</div>");
+                    return;
+                }
+
+                $.each(data, function(idx, item){
+                    let html = "";
+
+                    // ★ 드래그 공통 속성 설정 (Start)
+                    let dragAttr = `draggable="true" ondragstart="handleDragStart(event, ${item.id}, '${item.type}')"`;
+
+                    // A. 폴더인 경우
+                    if(item.type === 'FOLDER') {
+                        // 폴더는 '받는 역할(Drop Target)'도 수행 (Drop, Over, Leave)
+                        html = `
+                            <div class="item-card" ${dragAttr}
+                                 ondragover="handleDragOver(event)"
+                                 ondragleave="handleDragLeave(event)"
+                                 ondrop="handleDrop(event, ${item.id})">
+
+                                <div class="item-icon">📁</div>
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-meta">폴더</div>
+
+                                <div class="hover-overlay">
+                                    <button onclick="enterFolder(${item.id}, '${item.name}')" class="btn-action btn-enter">열기</button>
+                                    <button onclick="deleteFolder(${item.id})" class="btn-action btn-del">삭제</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    // B. 파일인 경우
+                    else {
+                        let sizeMB = (item.size / (1024 * 1024)).toFixed(2) + " MB";
+                        html = `
+                            <div class="item-card" ${dragAttr}>
+                                <div class="item-icon">📄</div>
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-meta">${sizeMB}</div>
+                                <div class="item-meta">by ${item.uploaderName}</div>
+
+                                <div class="hover-overlay">
+                                    <a href="/space/fileViewer?id=${item.id}" target="_blank" class="btn-action btn-view">미리보기</a>
+                                    <a href="/api/file/${item.id}?mode=download" class="btn-action btn-down">다운로드</a>
+                                    <button onclick="deleteFile(${item.id})" class="btn-action btn-del">삭제</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    area.append(html);
+                });
+            },
+            error: function(err){
+                alert("목록을 불러오지 못했습니다.");
+            }
+        });
+    }
+
+    // ==========================================
+    // 2. 폴더 네비게이션 & Breadcrumb
+    // ==========================================
+
+    // 폴더 안으로 진입
+    function enterFolder(folderId, folderName) {
+        currentFolderId = folderId;
+        folderStack.push({ id: folderId, name: folderName });
+        renderBreadcrumb();
+        loadItems();
+    }
+
+    // Breadcrumb 클릭 이동
+    function goToFolder(index) {
+        folderStack = folderStack.slice(0, index + 1);
+        currentFolderId = folderStack[folderStack.length - 1].id;
+        renderBreadcrumb();
+        loadItems();
+    }
+
+    // ★ Breadcrumb UI 렌더링 (여기도 드롭 존으로 만듦!)
+    function renderBreadcrumb() {
+        let bcArea = $("#breadcrumb_area");
+        bcArea.empty();
+
+        folderStack.forEach((folder, index) => {
+            // folder.id가 null인 경우(Root) JS 함수 호출 시 문제가 없도록 처리
+            let folderIdParam = (folder.id === null) ? 'null' : folder.id;
+
+            // 드롭 관련 이벤트 속성 정의
+            let dropAttr = `
+                ondragover="handleDragOver(event)"
+                ondragleave="handleDragLeave(event)"
+                ondrop="handleDrop(event, ${folderIdParam})"
+            `;
+
+            if (index === folderStack.length - 1) {
+                // 현재 위치 (마지막) - 드롭은 가능하지만 클릭은 안 됨
+                bcArea.append(`<span class="breadcrumb-current" ${dropAttr}>${folder.name}</span>`);
+            } else {
+                // 상위 경로 - 클릭 이동 가능 + 드롭 가능
+                bcArea.append(`
+                    <span class="breadcrumb-item" onclick="goToFolder(${index})" ${dropAttr}>${folder.name}</span>
+                    <span class="breadcrumb-separator">></span>
+                `);
+            }
+        });
+    }
+
+
+    // ==========================================
+    // 3. 생성 및 업로드 (Create)
+    // ==========================================
+
+    // 폴더 생성
+    function createNewFolder() {
+        let name = prompt("새 폴더 이름을 입력하세요:");
+        if(!name || name.trim() === "") return;
+
+        let reqData = {
+            spaceId: spaceId,
+            parentId: currentFolderId,
+            name: name.trim()
+        };
+
+        $.ajax({
+            url: '/api/file/folder',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(reqData),
+            success: function() { loadItems(); },
+            error: function(err) { alert("폴더 생성 실패: " + (err.responseText || "오류")); }
+        });
+    }
+
+    // 파일 업로드
+    function uploadFile(){
+        let fileInput = $("#fileInput")[0];
+        if(fileInput.files.length === 0) return;
+
+        let formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        formData.append("spaceId", spaceId);
+
+        if(currentFolderId != null) {
+            formData.append("folderId", currentFolderId);
+        }
+
+        $.ajax({
+            url: '/api/file',
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(){
+                alert("업로드 완료!");
+                loadItems();
+                $("#fileInput").val("");
+            },
+            error: function(err){
+                alert("업로드 실패");
+                $("#fileInput").val("");
+            }
+        });
+    }
+
+
+    // ==========================================
+    // 4. 삭제 (Delete)
+    // ==========================================
+
+    function deleteFile(fileId){
+        if(!confirm("파일을 삭제하시겠습니까?")) return;
+        $.ajax({
+            url: '/api/file',
+            method: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({ id: fileId }),
+            success: function(){ loadItems(); },
+            error: function(){ alert("삭제 실패"); }
+        });
+    }
+
+    function deleteFolder(folderId){
+        if(!confirm("폴더를 삭제하시겠습니까?\n(내부 파일도 함께 삭제될 수 있습니다)")) return;
+        $.ajax({
+            url: '/api/file/folder',
+            method: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({ id: folderId }),
+            success: function(){ loadItems(); },
+            error: function(){ alert("삭제 실패"); }
+        });
+    }
+
+
+    // ==========================================
+    // 5. 드래그 앤 드롭 (Move) - 핵심 기능
+    // ==========================================
+
+    // [드래그 시작]
+    function handleDragStart(e, id, type) {
+        // 옮길 아이템의 정보를 담습니다.
+        e.dataTransfer.setData("text/plain", JSON.stringify({ id: id, type: type }));
+        e.dataTransfer.effectAllowed = "move";
+    }
+
+    // [드래그 오버] 타겟 위에 올라왔을 때
+    function handleDragOver(e) {
+        e.preventDefault(); // 드롭 허용을 위해 필수
+        e.dataTransfer.dropEffect = "move";
+        // CSS 클래스를 추가하여 시각적으로 알려줌 (span, div 모두 동작)
+        $(e.currentTarget).addClass("drag-over");
+    }
+
+    // [드래그 리브] 타겟에서 벗어났을 때
+    function handleDragLeave(e) {
+        $(e.currentTarget).removeClass("drag-over");
+    }
+
+    // [드롭] 놓았을 때 -> 서버로 이동 요청
+    function handleDrop(e, targetFolderId) {
+        e.preventDefault();
+        $(e.currentTarget).removeClass("drag-over"); // 효과 제거
+
+        let data = e.dataTransfer.getData("text/plain");
+        if(!data) return;
+
+        let draggedItem = JSON.parse(data);
+
+        // 자기 자신에게 넣는 건 무효 (폴더 -> 자기자신)
+        if(draggedItem.type === 'FOLDER' && draggedItem.id === targetFolderId) return;
+
+        // 현재 폴더와 타겟 폴더가 같으면 무효 (이동하나 마나)
+        // (단, Breadcrumb을 통해 상위로 이동하는 경우는 currentFolderId와 targetFolderId가 다름)
+        if(currentFolderId === targetFolderId) return;
+
+        moveItem(draggedItem.id, draggedItem.type, targetFolderId);
+    }
+
+    // 서버 이동 API 호출
+    function moveItem(id, type, targetFolderId) {
+        $.ajax({
+            url: '/api/file/move',
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id: id,
+                type: type,
+                targetFolderId: targetFolderId // null이면 루트로 이동됨
+            }),
+            success: function() {
+                loadItems(); // 이동 후 현재 목록 갱신
+            },
+            error: function(err) {
+                alert("이동 실패: " + (err.responseText || "오류"));
+            }
+        });
+    }
+
+</script>
+
+</body>
+</html>
