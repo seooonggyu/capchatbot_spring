@@ -21,5 +21,5 @@
 * * **Repository:** [capchatbot_flutter](https://github.com/seooonggyu/capchatbot_flutter.git)
 
 ---
-<img width="590" height="1278" alt="IMG_5429" src="https://github.com/user-attachments/assets/2672506c-cdcf-4dc0-b09e-a80580f86630" />
-<img width="590" height="1278" alt="IMG_5430" src="https://github.com/user-attachments/assets/a6f88667-c340-4c5d-87b1-9b79cf724bbe" />
+<img width="295" height="639" alt="IMG_5429" src="https://github.com/user-attachments/assets/2672506c-cdcf-4dc0-b09e-a80580f86630" />
+<img width="295" height="639" alt="IMG_5430" src="https://github.com/user-attachments/assets/a6f88667-c340-4c5d-87b1-9b79cf724bbe" />
